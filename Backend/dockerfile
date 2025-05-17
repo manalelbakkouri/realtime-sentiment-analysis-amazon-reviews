@@ -1,10 +1,25 @@
 FROM python:3.9-slim
 
+# Définir le répertoire de travail
 WORKDIR /app
 
+# Copier les fichiers de dépendances
 COPY requirements.txt .
+
+# Installer les dépendances Python
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copier tout le code source
 COPY . .
 
-CMD ["flask", "run", "--host=0.0.0.0"]
+# Ajouter le dossier courant dans le PYTHONPATH pour que 'scripts' soit importable
+ENV PYTHONPATH=/app
+
+# Télécharger les ressources nécessaires de NLTK
+RUN python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('wordnet')"
+
+# Exposer le port utilisé par Flask
+EXPOSE 5000
+
+# Démarrer l'application
+CMD ["python", "app.py"]
