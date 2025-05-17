@@ -1,161 +1,153 @@
 "use client"
 
-import type React from "react"
-
-import { useEffect, useState } from "react"
-import { ThumbsUp, ThumbsDown, Minus, Search } from "lucide-react"
+import { useEffect, useState, useRef } from "react"
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
 import axios from "axios"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
+import { ArrowUpRight, Download } from "lucide-react"
 
-interface Review {
+interface SentimentCount {
   _id: string
-  reviewerID: string
-  asin: string
-  reviewText: string
-  overall: number
-  summary: string
-  unixReviewTime: number
-  reviewTime: string
-  prediction?: number
-  sentiment?: string
-  timestamp?: string
+  count: number
 }
 
-const ReviewsList = () => {
-  const [reviews, setReviews] = useState<Review[]>([])
+const COLORS = ["#10b981", "#ef4444", "#6b7280"]
+const RADIAN = Math.PI / 180
+
+const SentimentChart = () => {
+  const [data, setData] = useState<{ name: string; value: number }[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [productId, setProductId] = useState("")
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const chartRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const fetchReviews = async () => {
+    const fetchData = async () => {
       setLoading(true)
       try {
-        let url = "http://localhost:5000/api/predictions?limit=100"
-        if (productId) {
-          url = `http://localhost:5000/api/product/${productId}`
-        }
+        const response = await axios.get("http://localhost:5000/api/analytics/sentiment")
+        const sentimentData = response.data as SentimentCount[]
 
-        const response = await axios.get(url)
-        setReviews(response.data)
+        const formattedData = sentimentData.map((item) => ({
+          name: item._id.charAt(0).toUpperCase() + item._id.slice(1),
+          value: item.count,
+        }))
+
+        setData(formattedData)
       } catch (error) {
-        console.error("Error fetching reviews:", error)
+        console.error("Error fetching sentiment data:", error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchReviews()
-  }, [productId])
+    fetchData()
 
-  const getSentimentIcon = (sentiment?: string) => {
-    switch (sentiment) {
-      case "positive":
-        return <ThumbsUp className="h-4 w-4 text-green-500" />
-      case "negative":
-        return <ThumbsDown className="h-4 w-4 text-red-500" />
-      default:
-        return <Minus className="h-4 w-4 text-gray-500" />
-    }
+    // Rafraîchir les données toutes les 30 secondes
+    const interval = setInterval(fetchData, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }: any) => {
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5
+    const x = cx + radius * Math.cos(-midAngle * RADIAN)
+    const y = cy + radius * Math.sin(-midAngle * RADIAN)
+
+    const isHovered = index === hoveredIndex
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor="middle"
+        dominantBaseline="central"
+        className={`font-medium transition-all duration-300 ${isHovered ? "font-bold text-lg" : ""}`}
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    )
   }
 
-  const getSentimentBadge = (sentiment?: string) => {
-    switch (sentiment) {
-      case "positive":
-        return <span className="badge badge-success">Positif</span>
-      case "negative":
-        return <span className="badge badge-danger">Négatif</span>
-      default:
-        return <span className="badge badge-secondary">Neutre</span>
+  const downloadChart = () => {
+    if (chartRef.current) {
+      // Cette fonction est simplifiée - dans un cas réel, vous utiliseriez
+      // une bibliothèque comme html2canvas pour capturer le graphique
+      alert("Téléchargement du graphique (fonctionnalité simulée)")
     }
-  }
-
-  const filteredReviews = reviews.filter(
-    (review) =>
-      review.reviewText?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      review.summary?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      review.asin?.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row">
-        <form onSubmit={handleSearch} className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-            <input
-              type="search"
-              placeholder="Rechercher dans les avis..."
-              className="input pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </form>
-
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="ID du produit (ASIN)"
-            className="input"
-            value={productId}
-            onChange={(e) => setProductId(e.target.value)}
-          />
-          <button className="btn btn-outline" onClick={() => setProductId("")} disabled={!productId}>
-            Réinitialiser
+    <div className={`card chart-container ${loading ? "loading" : ""}`} ref={chartRef}>
+      <div className="card-header">
+        <h3 className="card-title">Répartition des sentiments</h3>
+        <div className="flex items-center gap-2">
+          <button className="btn btn-outline btn-sm flex items-center gap-1" onClick={downloadChart}>
+            <Download size={14} />
+            <span>Exporter</span>
+          </button>
+          <button className="btn btn-primary btn-sm flex items-center gap-1">
+            <span>Détails</span>
+            <ArrowUpRight size={14} />
           </button>
         </div>
       </div>
-
-      {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <p className="text-gray-500 dark:text-gray-400">Chargement des avis...</p>
-        </div>
-      ) : filteredReviews.length > 0 ? (
-        <div className="space-y-4">
-          {filteredReviews.map((review) => (
-            <div key={review._id} className="card">
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium">{review.summary}</h3>
-                    {getSentimentBadge(review.sentiment)}
-                  </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Produit: {review.asin} | Note: {review.overall}/5
-                  </p>
-                  <div className="mt-4">
-                    <p className="text-sm">{review.reviewText}</p>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <div className="flex items-center gap-1">
-                    {getSentimentIcon(review.sentiment)}
-                    <span className="text-sm font-medium capitalize">{review.sentiment || "Non analysé"}</span>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {review.timestamp
-                      ? format(new Date(review.timestamp), "dd MMMM yyyy à HH:mm", { locale: fr })
-                      : review.reviewTime}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">ID: {review.reviewerID}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="flex h-40 items-center justify-center">
-          <p className="text-gray-500 dark:text-gray-400">Aucun avis trouvé</p>
-        </div>
-      )}
+      <div className="h-80">
+        {data.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={renderCustomizedLabel}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+                onMouseEnter={(_, index) => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
+                animationDuration={1000}
+              >
+                {data.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                    className="transition-all duration-300"
+                    style={{
+                      filter: hoveredIndex === index ? "brightness(1.1)" : "brightness(1)",
+                      transform: hoveredIndex === index ? "scale(1.05)" : "scale(1)",
+                      transformOrigin: "center",
+                    }}
+                  />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(value: number) => [`${value} avis`, "Nombre"]}
+                contentStyle={{
+                  borderRadius: "0.5rem",
+                  border: "1px solid var(--card-border)",
+                  backgroundColor: "var(--card-bg)",
+                }}
+              />
+              <Legend
+                verticalAlign="bottom"
+                height={36}
+                iconType="circle"
+                formatter={(value, entry, index) => (
+                  <span style={{ color: hoveredIndex === index ? COLORS[index % COLORS.length] : "inherit" }}>
+                    {value}
+                  </span>
+                )}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-gray-500 dark:text-gray-400">Chargement des données...</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-export default ReviewsList
+export default SentimentChart
