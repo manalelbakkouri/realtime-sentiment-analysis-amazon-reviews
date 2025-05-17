@@ -1,0 +1,14 @@
+FROM node:16-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm install
+
+COPY . .
+
+# Exposer le port 5173 (port par défaut de Vite)
+EXPOSE 5173
+
+# Commande pour démarrer l'application en mode développement
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
