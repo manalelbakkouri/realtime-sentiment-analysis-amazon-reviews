@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Importer les composants personnalisés
 from models.sentiment_predictor import SentimentPredictor
-from scripts.kafka_consumer import start_consumer_thread
+from Backend.scripts.kafka_consumer import start_consumer_thread
 
 # Classe pour encoder les objets MongoDB en JSON
 class JSONEncoder(json.JSONEncoder):

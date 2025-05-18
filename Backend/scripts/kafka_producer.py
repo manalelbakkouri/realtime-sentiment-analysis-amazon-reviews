@@ -1,11 +1,13 @@
+# scripts/kafka_producer.py
+
 import sys
 import os
 import argparse
 
-# Ajouter le répertoire parent au path pour les imports
+# Assure l'import de kafka_utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from scripts.kafka_producer import send_reviews
+from scripts.kafka_utils import send_reviews  
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Envoyer des avis de test au topic Kafka')

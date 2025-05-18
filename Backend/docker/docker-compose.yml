@@ -20,7 +20,7 @@ services:
     networks:
       - app-network
 
-  kafka:
+  kafka:  # <-- mauvaise indentation corrigée ici (sorti du bloc zookeeper)
     image: confluentinc/cp-kafka:latest
     container_name: kafka
     depends_on:
@@ -30,7 +30,10 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
@@ -38,8 +41,8 @@ services:
 
   flask-api:
     build:
-      context: ..
-      dockerfile: Backend/dockerfile
+      context: .
+      dockerfile: Dockerfile
     container_name: flask-api
     depends_on:
       - mongodb
@@ -51,12 +54,9 @@ services:
       - PORT=5000
       - SECRET_KEY=your_secret_key_here
       - ADMIN_KEY=your_admin_key_here
-      - MODEL_PATH=/app/models/sentiment_model.pkl
-      - VECTORIZER_PATH=/app/models/tfidf_vectorizer.pkl
     volumes:
-      - ../Backend/models:/app/models
-      - ../Backend/scripts:/app/scripts
-      - ../Backend/data:/app/data
+      - ./models:/app/models
+      - ./Backend:/app/Backend
     networks:
       - app-network
 
