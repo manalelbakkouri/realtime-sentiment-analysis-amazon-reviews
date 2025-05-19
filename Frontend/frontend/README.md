@@ -1,54 +1,69 @@
-# React + TypeScript + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# Sentiment Analysis Dashboard
 
-Currently, two official plugins are available:
+An elegant, professional, and interactive dashboard for real-time sentiment analysis monitoring and offline data exploration.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## Expanding the ESLint configuration
+### Real-time Monitoring Dashboard
+- Live sentiment tracking with automatic updates
+- Color-coded sentiment visualization (🟢 Positive, 🟡 Neutral, 🔴 Negative)
+- Dynamic statistics with sentiment distribution
+- Manual review analysis tool
+- Responsive design for all device sizes
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Offline Analysis Dashboard
+- Advanced data visualization with interactive charts
+- Filter controls for data exploration
+- Product-specific analysis tools
+- Trend analysis over time
+- Comparative sentiment analysis
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## Technologies Used
+
+- **Frontend**: React (Vite), TypeScript, Tailwind CSS
+- **UI Components**: shadcn/ui
+- **Data Visualization**: Recharts
+- **State Management**: React Query
+- **Data Fetching**: Custom API integration
+
+## Development
+
+This project was created using Lovable, a platform for rapid application development.
+
+To run the project locally:
+
+```sh
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Backend Integration
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+This dashboard is designed to connect with a Flask backend that processes sentiment analysis through a machine learning pipeline. The backend stack includes:
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+- Flask API
+- MongoDB for data storage
+- Machine Learning pipeline (scikit-learn)
+- Kafka for real-time data streaming
+- Spark Streaming for data processing
+
+## Project Architecture
+
 ```
+src/
+├── components/        # UI components
+│   ├── charts/       # Data visualization components
+│   └── ...           # Other UI components
+├── hooks/            # Custom React hooks
+├── pages/            # Application pages
+├── services/         # API services
+└── ...
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

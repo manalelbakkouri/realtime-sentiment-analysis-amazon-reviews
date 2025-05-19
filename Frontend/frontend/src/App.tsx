@@ -1,19 +1,53 @@
-import { Routes, Route } from "react-router-dom"
-import Layout from "./components/Layout"
-import Dashboard from "./pages/Dashboard"
-import Reviews from "./pages/Reviews"
-import Analytics from "./pages/Analytics"
 
-function App() {
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Index from "./pages/Index";
+import NotFound from "./pages/NotFound";
+import { useEffect } from "react";
+import { ThemeProvider } from "./contexts/ThemeContext";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+const App = () => {
+  // Add Tailwind CSS script dynamically
+  useEffect(() => {
+    const tailwindScript = document.createElement('script');
+    tailwindScript.src = "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4";
+    tailwindScript.async = true;
+    document.head.appendChild(tailwindScript);
+    
+    return () => {
+      document.head.removeChild(tailwindScript);
+    };
+  }, []);
+
   return (
-    <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="reviews" element={<Reviews />} />
-        <Route path="analytics" element={<Analytics />} />
-      </Route>
-    </Routes>
-  )
-}
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
+};
 
-export default App
+export default App;
