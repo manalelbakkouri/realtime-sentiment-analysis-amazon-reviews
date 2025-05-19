@@ -1,103 +1,106 @@
-from kafka import KafkaConsumer
 import json
-import time
-from datetime import datetime
-from pymongo import MongoClient
-import joblib
-import os
-import sys
+from kafka import KafkaConsumer
+from kafka_utils import get_bootstrap_servers
+from models.sentiment_predictor import SentimentPredictor
+import logging
 
-# Ajouter le répertoire parent au path pour les imports (si besoin)
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-def consume_messages(predictor, predictions_collection, socketio=None):
-    """
-    Consomme les messages du topic Kafka et effectue des prédictions de sentiment.
-    """
-    consumer = None
-    max_retries = 5
-    retries = 0
+class SentimentConsumer:
+    def __init__(self, topic="reviews", group_id="sentiment-consumer", model_path="models/sentiment_model"):
+        """Initialize the sentiment consumer.
+        
+        Args:
+            topic: Kafka topic to consume from
+            group_id: Consumer group ID
+            model_path: Path to the saved sentiment model
+        """
+        self.topic = topic
+        self.group_id = group_id
+        self.bootstrap_servers = get_bootstrap_servers()
+        self.predictor = SentimentPredictor(model_path=model_path)
+        self.consumer = None
 
-    while retries < max_retries and consumer is None:
+    def initialize_consumer(self):
+        """Initialize Kafka consumer with the appropriate configuration."""
         try:
-            consumer = KafkaConsumer(
-                'amazon-reviews',
-                bootstrap_servers=['localhost:9092'],
+            self.consumer = KafkaConsumer(
+                self.topic,
+                bootstrap_servers=self.bootstrap_servers,
+                group_id=self.group_id,
                 auto_offset_reset='earliest',
                 value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-                group_id='amazon-reviews-group',
+                enable_auto_commit=True
             )
-            print("Connexion à Kafka réussie.")
+            logger.info(f"Consumer initialized. Listening to topic: {self.topic}")
         except Exception as e:
-            retries += 1
-            print(f"Tentative {retries}/{max_retries} échouée : {e}")
-            time.sleep(5)
+            logger.error(f"Failed to initialize consumer: {str(e)}")
+            raise
 
-    if consumer is None:
-        print("Impossible de se connecter à Kafka.")
-        return
-
-    print("Kafka consumer prêt. En attente de messages...")
-
-    for message in consumer:
+    def process_message(self, message):
+        """Process a single message from Kafka.
+        
+        Args:
+            message: Kafka message containing review data
+            
+        Returns:
+            Processed message with sentiment prediction
+        """
         try:
-            review = message.value
-            review_text = review.get('reviewText', '')
-            if not review_text:
-                continue
-
-            # IMPORTANT : passer une liste d'un seul élément au pipeline
-            prediction = predictor.predict([review_text])[0]
-
-            try:
-                probabilities = predictor.predict_proba([review_text])[0].tolist()
-                confidence = max(probabilities)
-            except Exception:
-                probabilities = None
-                confidence = None
-
-            sentiment = ["negative", "neutral", "positive"][prediction]
-
-            prediction_result = {
-                "reviewerID": review.get('reviewerID', ''),
-                "asin": review.get('asin', ''),
-                "reviewText": review_text,
-                "overall": review.get('overall', 0),
-                "summary": review.get('summary', ''),
-                "unixReviewTime": review.get('unixReviewTime', 0),
-                "reviewTime": review.get('reviewTime', ''),
-                "prediction": int(prediction),
-                "sentiment": sentiment,
-                "confidence": confidence,
-                "probabilities": probabilities,
-                "timestamp": datetime.now(),
-                "processed_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-
-            # Enregistrement dans MongoDB
-            predictions_collection.insert_one(prediction_result)
-
-            conf_str = f"{confidence:.2f}" if confidence is not None else "N/A"
-            print(f"Avis traité : {sentiment} (confidence={conf_str})")
-
+            # Get the review data from the message
+            review_data = message.value
+            
+            # Add logging for debugging
+            logger.debug(f"Processing message: {review_data}")
+            
+            # Predict sentiment
+            result = self.predictor.predict_sentiment(review_data)
+            
+            logger.info(f"Processed review ID: {review_data.get('reviewId', 'unknown')}, "
+                       f"Sentiment: {result.get('sentiment', 'unknown')}")
+            
+            return result
         except Exception as e:
-            print(f"Erreur lors du traitement : {e}")
+            logger.error(f"Error processing message: {str(e)}")
+            return {"error": str(e), "original_data": message.value}
+
+    def start_consuming(self):
+        """Start consuming messages from Kafka and processing them."""
+        if not self.consumer:
+            self.initialize_consumer()
+            
+        try:
+            logger.info("Starting to consume messages...")
+            for message in self.consumer:
+                processed_message = self.process_message(message)
+                
+                # Here you could send the processed message to another Kafka topic,
+                # save to a database, or perform any other action with the results
+                
+                # Example: Logging the processed message
+                logger.debug(f"Processed message: {processed_message}")
+                
+        except KeyboardInterrupt:
+            logger.info("Consumption interrupted by user")
+        except Exception as e:
+            logger.error(f"Error during consumption: {str(e)}")
+        finally:
+            self.shutdown()
+
+    def shutdown(self):
+        """Shutdown the consumer and predictor."""
+        logger.info("Shutting down consumer...")
+        if self.consumer:
+            self.consumer.close()
+        
+        if self.predictor:
+            self.predictor.shutdown()
 
 if __name__ == "__main__":
-    print("Initialisation du Consumer Kafka...")
-
-    # Charger le pipeline complet
-    model_path = "./models/sentiment_model.pkl"  # Chemin à adapter si besoin
-    if not os.path.exists(model_path):
-        print(f"Modèle introuvable à {model_path}")
-        sys.exit(1)
-
-    predictor = joblib.load(model_path)  # Chargement pipeline complet
-
-    # Connexion à MongoDB
-    mongo_client = MongoClient("mongodb://mongodb:27017/")
-    db = mongo_client["sentiment_db"]
-    predictions_collection = db["predictions"]
-
-    # Lancer le consumer
-    consume_messages(predictor, predictions_collection)
+    consumer = SentimentConsumer()
+    consumer.start_consuming()

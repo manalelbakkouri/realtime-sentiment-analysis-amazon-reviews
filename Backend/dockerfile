@@ -1,25 +1,33 @@
 FROM python:3.9-slim
 
-# Définir le répertoire de travail
+# Configuration Java pour PySpark
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends wget gnupg2 && \
+    wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor > /usr/share/keyrings/adoptium.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list && \
+    apt-get update && \
+    apt-get install -y temurin-8-jdk && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64
 WORKDIR /app
 
-# Copier les fichiers de dépendances
 COPY requirements.txt .
 
-# Installer les dépendances Python
+COPY scripts/ scripts/
+COPY models/ models/ 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copier tout le code source
+# Copie de toute l'arborescence Backend
 COPY . .
 
-# Ajouter le dossier courant dans le PYTHONPATH pour que 'scripts' soit importable
-ENV PYTHONPATH=/app
+# Configuration Python
+ENV PYTHONPATH="/app:$PYTHONPATH"
+ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+ENV PYSPARK_PYTHON=python3
 
-# Télécharger les ressources nécessaires de NLTK
-RUN python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('wordnet')"
-
-# Exposer le port utilisé par Flask
 EXPOSE 5000
 
-# Démarrer l'application
-CMD ["python", "app.py"]
+# Exécution du point d'entrée unique
+CMD ["python", "scripts/app.py"]

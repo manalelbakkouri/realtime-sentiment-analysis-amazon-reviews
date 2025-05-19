@@ -1,90 +1,86 @@
-from kafka import KafkaProducer
+import sys
+import os
 import json
 import time
-import random
 import argparse
 
-# Exemples d'avis pour les tests
-SAMPLE_REVIEWS = [
-    {
-        "reviewText": "This product is amazing! I love everything about it. The quality is outstanding and it works perfectly.",
-        "overall": 5.0,
-        "summary": "Excellent product",
-    },
-    {
-        "reviewText": "It's okay, nothing special. Works as expected but doesn't have any standout features.",
-        "overall": 3.0,
-        "summary": "Average product",
-    },
-    {
-        "reviewText": "Terrible purchase. Broke after a week. Customer service was unhelpful. Would not recommend.",
-        "overall": 1.0,
-        "summary": "Disappointing",
-    },
-    {
-        "reviewText": "Good product for the price. Not perfect but does the job well enough.",
-        "overall": 4.0,
-        "summary": "Good value",
-    },
-    {
-        "reviewText": "I'm not satisfied with this purchase. The quality is lower than expected.",
-        "overall": 2.0,
-        "summary": "Below expectations",
-    }
-]
+# Add the parent directory to sys.path to import the modules
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def generate_review():
-    """Génère un avis aléatoire pour les tests"""
-    review = random.choice(SAMPLE_REVIEWS).copy()
-    
-    # Ajouter des champs supplémentaires
-    review.update({
-        "reviewerID": f"user_{random.randint(1000, 9999)}",
-        "asin": f"product_{random.randint(1000, 9999)}",
-        "unixReviewTime": int(time.time()),
-        "reviewTime": time.strftime("%Y-%m-%d", time.localtime()),
-    })
-    
-    return review
+from scripts.kafka_producer import ReviewProducer
 
-def send_reviews(num_reviews, interval):
-    """Envoie des avis au topic Kafka"""
+def parse_args():
+    parser = argparse.ArgumentParser(description="Test the Kafka producer with sample reviews")
+    parser.add_argument("--count", type=int, default=5, help="Number of sample reviews to send")
+    parser.add_argument("--delay", type=float, default=1.0, help="Delay between messages in seconds")
+    return parser.parse_args()
+
+def generate_sample_reviews(count=5):
+    """Generate a list of sample reviews for testing.
+    
+    Args:
+        count: Number of sample reviews to generate
+        
+    Returns:
+        List of sample review dictionaries
+    """
+    samples = [
+        {
+            "reviewText": "This product exceeded my expectations. The quality is excellent and it works perfectly.",
+            "summary": "Excellent product, highly recommended",
+            "overall": 5.0
+        },
+        {
+            "reviewText": "Good product for the price. Does what it says it will do, but nothing extraordinary.",
+            "summary": "Good value for money",
+            "overall": 4.0
+        },
+        {
+            "reviewText": "It's okay. Not great, not terrible. Does the job but there are better options.",
+            "summary": "Average product",
+            "overall": 3.0
+        },
+        {
+            "reviewText": "Disappointed with this purchase. Product quality is poor and doesn't last long.",
+            "summary": "Poor quality, wouldn't recommend",
+            "overall": 2.0
+        },
+        {
+            "reviewText": "Terrible product. Complete waste of money. Don't buy this under any circumstances.",
+            "summary": "Awful, avoid at all costs",
+            "overall": 1.0
+        }
+    ]
+    
+    # Generate the requested number of reviews by cycling through the samples
+    result = []
+    for i in range(count):
+        result.append(samples[i % len(samples)])
+    
+    return result
+
+def main():
+    args = parse_args()
+    producer = ReviewProducer()
+    
     try:
-        # Créer le producer Kafka
-        producer = KafkaProducer(
-            bootstrap_servers=['localhost:9092'],
-            value_serializer=lambda v: json.dumps(v).encode('utf-8')
-        )
+        print(f"Sending {args.count} sample reviews with {args.delay}s delay...")
+        sample_reviews = generate_sample_reviews(args.count)
         
-        print(f"Envoi de {num_reviews} avis au topic 'amazon-reviews'...")
-        
-        for i in range(num_reviews):
-            # Générer un avis aléatoire
-            review = generate_review()
+        for i, review in enumerate(sample_reviews):
+            future = producer.send_review(review)
+            future.get(timeout=10)  # Wait for the message to be sent
+            print(f"Sent review {i+1}/{args.count}: {review['summary']}")
             
-            # Envoyer l'avis au topic Kafka
-            producer.send('amazon-reviews', review)
-            
-            print(f"Avis {i+1}/{num_reviews} envoyé: {review['summary']} - {review['overall']} étoiles")
-            
-            # Attendre l'intervalle spécifié
-            if i < num_reviews - 1:
-                time.sleep(interval)
-        
-        # Assurer que tous les messages sont envoyés
-        producer.flush()
-        print("Tous les avis ont été envoyés avec succès!")
+            if i < len(sample_reviews) - 1:
+                time.sleep(args.delay)
+                
+        print("All sample reviews sent successfully!")
         
     except Exception as e:
-        print(f"Erreur lors de l'envoi des avis: {e}")
+        print(f"Error: {str(e)}")
     finally:
-        if 'producer' in locals():
-            producer.close()
+        producer.shutdown()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Envoyer des avis de test au topic Kafka')
-    parser.add_argument('--count', type=int, default=10, help='Nombre d\'avis à envoyer')
-    parser.add_argument('--interval', type=float, default=1.0, help='Intervalle entre les envois (en secondes)')
-    
-    args = parser.parse_args()
-    send_reviews(args.count, args.interval)
+    main()

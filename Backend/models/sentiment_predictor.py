@@ -1,143 +1,112 @@
-import pickle
+from pyspark.sql import SparkSession
+from pyspark.ml import PipelineModel
+from pyspark.sql.functions import col, when, concat_ws, lit, trim
 import os
-import re
-import nltk
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
-import joblib
-
-# Télécharger les ressources NLTK nécessaires
-nltk.download('punkt', quiet=True)
-nltk.download('stopwords', quiet=True)
-nltk.download('wordnet', quiet=True)
+import json
 
 class SentimentPredictor:
-    def __init__(self, model_path=None, vectorizer_path=None):
-        """
-        Initialise le prédicteur de sentiment.
+    def __init__(self, model_path="models/sentiment_model"):
+        """Initialize the sentiment predictor with a pre-trained model.
         
         Args:
-            model_path (str, optional): Chemin vers le fichier du modèle ML.
-            vectorizer_path (str, optional): Chemin vers le fichier du vectoriseur TF-IDF.
+            model_path: Path to the saved PipelineModel
         """
-        # Définir les chemins par défaut si non spécifiés
-        if model_path is None:
-            model_path = os.path.join(os.path.dirname(__file__), '../../models/sentiment_model.pkl')
-        if vectorizer_path is None:
-            vectorizer_path = os.path.join(os.path.dirname(__file__), '../../models/tfidf_vectorizer.pkl')
+        self.model_path = model_path
+        self.spark = None
+        self.model = None
+        self.initialize_spark()
+        self.load_model()
         
-        # Charger les modèles s'ils existent
-        try:
-            # Option 1: Si vous avez exporté le pipeline complet
-            if os.path.exists(model_path) and not os.path.exists(vectorizer_path):
-                print("Chargement du pipeline complet...")
-                self.pipeline = joblib.load(model_path)
-                self.model_type = "pipeline"
-                self.model_loaded = True
-            # Option 2: Si vous avez exporté le vectoriseur et le modèle séparément
-            elif os.path.exists(model_path) and os.path.exists(vectorizer_path):
-                print("Chargement du vectoriseur et du modèle séparément...")
-                self.vectorizer = joblib.load(vectorizer_path)
-                self.model = joblib.load(model_path)
-                self.model_type = "separate"
-                self.model_loaded = True
-            else:
-                raise FileNotFoundError("Fichiers de modèle non trouvés")
-                
-        except FileNotFoundError as e:
-            print(f"Erreur lors du chargement des modèles: {e}")
-            print("Utilisation d'un modèle fictif pour le développement.")
-            self.model_loaded = False
+    def initialize_spark(self):
+        """Initialize a Spark session."""
+        self.spark = SparkSession.builder \
+            .appName("SentimentPredictionService") \
+            .getOrCreate()
         
-        # Initialiser les outils de prétraitement pour le nettoyage manuel si nécessaire
-        self.stop_words = set(stopwords.words('english'))
-        self.lemmatizer = WordNetLemmatizer()
-    
-    def preprocess_text(self, text):
-        """
-        Prétraite le texte pour la prédiction (utilisé si le pipeline n'est pas chargé).
+    def load_model(self):
+        """Load the pre-trained sentiment analysis model."""
+        if os.path.exists(self.model_path):
+            self.model = PipelineModel.load(self.model_path)
+            print(f"Model loaded from {self.model_path}")
+        else:
+            print(f"Model not found at {self.model_path}. You need to train it first.")
+            
+    def preprocess_text(self, df):
+        """Preprocess the input text similar to how the training data was processed.
         
         Args:
-            text (str): Texte brut à prétraiter.
+            df: Spark DataFrame with 'summary' and 'reviewText' columns
             
         Returns:
-            str: Texte prétraité.
+            Spark DataFrame with additional 'text' column
         """
-        # Convertir en minuscules
-        text = text.lower()
-        # Supprimer la ponctuation et les chiffres
-        text = re.sub(r'[^\w\s]', '', text)
-        text = re.sub(r'\d+', '', text)
-        # Tokeniser
-        tokens = nltk.word_tokenize(text)
-        # Supprimer les stop words et lemmatiser
-        tokens = [self.lemmatizer.lemmatize(token) for token in tokens if token not in self.stop_words]
-        return ' '.join(tokens)
+        return df.withColumn("text", 
+            concat_ws(" ", 
+                when(col("summary").isNull(), "").otherwise(col("summary")),
+                when(col("reviewText").isNull(), "").otherwise(col("reviewText"))
+            )
+        ).withColumn("text", 
+            when(col("text").isNull() | (trim(col("text")) == ""), lit("empty_review")).otherwise(col("text"))
+        )
     
-    def predict(self, text):
-        """
-        Prédit le sentiment d'un texte.
+    def predict_sentiment(self, data):
+        """Predict sentiment for the given input data.
         
         Args:
-            text (str): Texte brut à analyser.
+            data: Dictionary or JSON string containing 'summary' and/or 'reviewText'
             
         Returns:
-            int: 0 pour négatif, 1 pour neutre, 2 pour positif.
+            Dictionary with original data and sentiment prediction
         """
-        # Si le modèle n'est pas chargé, retourner une prédiction aléatoire
-        if not self.model_loaded:
-            import random
-            return random.choice([0, 1, 2])  # 0: négatif, 1: neutre, 2: positif
-        
-        # Effectuer la prédiction selon le type de modèle chargé
-        try:
-            if self.model_type == "pipeline":
-                # Le pipeline gère le prétraitement et la prédiction
-                prediction = self.pipeline.predict([text])[0]
-            else:
-                # Prétraiter le texte manuellement
-                preprocessed_text = self.preprocess_text(text)
-                
-                # Vectoriser le texte
-                X = self.vectorizer.transform([preprocessed_text])
-                
-                # Prédire le sentiment
-                prediction = self.model.predict(X)[0]
+        if self.model is None:
+            return {"error": "Model not loaded"}
             
-            return prediction
-        except Exception as e:
-            print(f"Erreur lors de la prédiction: {e}")
-            # En cas d'erreur, retourner une valeur par défaut
-            return 1  # Neutre par défaut
+        # Parse input data
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except json.JSONDecodeError:
+                return {"error": "Invalid JSON input"}
+        
+        # Create a DataFrame from the input
+        input_df = self.spark.createDataFrame([data])
+        
+        # Preprocess the data
+        processed_df = self.preprocess_text(input_df)
+        
+        # Make prediction
+        result = self.model.transform(processed_df)
+        
+        # Map numeric prediction to sentiment labels
+        sentiment_map = {0: "negative", 1: "neutral", 2: "positive"}
+        
+        # Extract the result
+        prediction_row = result.select("prediction").collect()[0]
+        prediction = int(prediction_row.prediction)
+        sentiment = sentiment_map.get(prediction, "unknown")
+        
+        # Create response
+        response = data.copy()
+        response["sentiment"] = sentiment
+        response["sentiment_code"] = prediction
+        
+        return response
     
-    def predict_proba(self, text):
-        """
-        Prédit les probabilités de chaque classe de sentiment.
+    def predict_batch(self, data_list):
+        """Predict sentiment for a batch of inputs.
         
         Args:
-            text (str): Texte brut à analyser.
+            data_list: List of dictionaries or JSON strings
             
         Returns:
-            list: Probabilités pour chaque classe [négatif, neutre, positif].
+            List of prediction results
         """
-        if not self.model_loaded:
-            return [0.33, 0.34, 0.33]  # Probabilités équiprobables
-        
-        try:
-            if self.model_type == "pipeline":
-                # Le pipeline gère le prétraitement et la prédiction
-                proba = self.pipeline.predict_proba([text])[0]
-            else:
-                # Prétraiter le texte manuellement
-                preprocessed_text = self.preprocess_text(text)
-                
-                # Vectoriser le texte
-                X = self.vectorizer.transform([preprocessed_text])
-                
-                # Prédire les probabilités
-                proba = self.model.predict_proba(X)[0]
-            
-            return proba.tolist()
-        except Exception as e:
-            print(f"Erreur lors de la prédiction des probabilités: {e}")
-            return [0.33, 0.34, 0.33]  # Probabilités équiprobables
+        results = []
+        for data in data_list:
+            results.append(self.predict_sentiment(data))
+        return results
+    
+    def shutdown(self):
+        """Stop the Spark session."""
+        if self.spark:
+            self.spark.stop()

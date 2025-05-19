@@ -1,20 +1,124 @@
-# scripts/kafka_producer.py
-
-import sys
-import os
+import json
+import uuid
+from kafka import KafkaProducer
+from kafka_utils import get_bootstrap_servers
+import logging
 import argparse
 
-# Assure l'import de kafka_utils
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-from scripts.kafka_utils import send_reviews  
+class ReviewProducer:
+    def __init__(self, topic="reviews"):
+        """Initialize the review producer.
+        
+        Args:
+            topic: Kafka topic to produce to
+        """
+        self.topic = topic
+        self.bootstrap_servers = get_bootstrap_servers()
+        self.producer = None
+
+    def initialize_producer(self):
+        """Initialize Kafka producer with the appropriate configuration."""
+        try:
+            self.producer = KafkaProducer(
+                bootstrap_servers=self.bootstrap_servers,
+                value_serializer=lambda x: json.dumps(x).encode('utf-8')
+            )
+            logger.info(f"Producer initialized for topic: {self.topic}")
+        except Exception as e:
+            logger.error(f"Failed to initialize producer: {str(e)}")
+            raise
+
+    def send_review(self, review_data):
+        """Send a review to the Kafka topic.
+        
+        Args:
+            review_data: Dictionary containing review data
+            
+        Returns:
+            Future for the message being sent
+        """
+        if not self.producer:
+            self.initialize_producer()
+        
+        # Ensure review has an ID
+        if 'reviewId' not in review_data:
+            review_data['reviewId'] = str(uuid.uuid4())
+            
+        try:
+            future = self.producer.send(self.topic, review_data)
+            logger.info(f"Review sent to topic {self.topic}: ID {review_data.get('reviewId')}")
+            return future
+        except Exception as e:
+            logger.error(f"Error sending review: {str(e)}")
+            raise
+
+    def send_sample_review(self, text=None, summary=None):
+        """Send a sample review for testing.
+        
+        Args:
+            text: Review text
+            summary: Review summary
+            
+        Returns:
+            Future for the message being sent
+        """
+        if text is None:
+            text = "This product was really good. I enjoyed using it and would recommend it to others."
+        
+        if summary is None:
+            summary = "Great product, highly recommended"
+            
+        review_data = {
+            "reviewId": str(uuid.uuid4()),
+            "reviewText": text,
+            "summary": summary,
+            "overall": 5.0  # Not used by the predictor, but included for completeness
+        }
+        
+        return self.send_review(review_data)
+
+    def shutdown(self):
+        """Shutdown the producer."""
+        logger.info("Shutting down producer...")
+        if self.producer:
+            self.producer.flush()
+            self.producer.close()
+
+def parse_review_from_args():
+    """Parse review data from command line arguments."""
+    parser = argparse.ArgumentParser(description="Send a review to Kafka")
+    parser.add_argument("--text", type=str, help="Review text")
+    parser.add_argument("--summary", type=str, help="Review summary")
+    parser.add_argument("--file", type=str, help="JSON file containing reviews to send")
+    return parser.parse_args()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Envoyer des avis de test au topic Kafka')
-    parser.add_argument('--count', type=int, default=10, help='Nombre d\'avis à envoyer')
-    parser.add_argument('--interval', type=float, default=1.0, help='Intervalle entre les envois (en secondes)')
-    parser.add_argument('--server', type=str, default='localhost:9092', help='Serveur Kafka (host:port)')
+    args = parse_review_from_args()
+    producer = ReviewProducer()
     
-    args = parser.parse_args()
-    success = send_reviews(args.count, args.interval, [args.server])
-    sys.exit(0 if success else 1)
+    try:
+        # Send from file if specified
+        if args.file:
+            with open(args.file, 'r') as file:
+                reviews = json.load(file)
+                if isinstance(reviews, list):
+                    for review in reviews:
+                        producer.send_review(review)
+                else:
+                    producer.send_review(reviews)
+            logger.info(f"Sent reviews from file: {args.file}")
+        # Otherwise send from args
+        else:
+            producer.send_sample_review(args.text, args.summary)
+            logger.info("Sent sample review")
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+    finally:
+        producer.shutdown()

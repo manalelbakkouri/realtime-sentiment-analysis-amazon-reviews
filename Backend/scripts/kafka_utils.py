@@ -1,33 +1,31 @@
-# scripts/kafka_utils.py
+import os
 
-import json
-import time
-from kafka import KafkaProducer
+def get_bootstrap_servers():
+    """Get Kafka bootstrap servers from environment variables or use default.
+    
+    Returns:
+        String with comma-separated list of Kafka bootstrap servers
+    """
+    return os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
 
+def get_topic_name(default_name="reviews"):
+    """Get Kafka topic name from environment variables or use default.
+    
+    Args:
+        default_name: Default topic name to use if not specified in environment
+        
+    Returns:
+        String with Kafka topic name
+    """
+    return os.environ.get('KAFKA_TOPIC', default_name)
 
-def send_reviews(count, interval, servers):
-    try:
-        producer = KafkaProducer(
-            bootstrap_servers=servers,
-            value_serializer=lambda x: json.dumps(x).encode('utf-8')
-        )
-
-        for i in range(count):
-            message = {
-                'review_id': i,
-                'reviewText': f"Ceci est un commentaire de test n°{i}",
-                'overall': 5,
-                'asin': 'B00004Y2UT',
-                'reviewerID': f'user_{i}',
-            }
-            producer.send('amazon-reviews', value=message)
-            print(f"[Producer] Envoyé : {message}")
-            time.sleep(interval)
-
-        producer.flush()
-        producer.close()
-        return True
-
-    except Exception as e:
-        print(f"[Producer] Erreur : {e}")
-        return False
+def get_consumer_group(default_group="sentiment-consumer"):
+    """Get Kafka consumer group from environment variables or use default.
+    
+    Args:
+        default_group: Default consumer group to use if not specified in environment
+        
+    Returns:
+        String with Kafka consumer group
+    """
+    return os.environ.get('KAFKA_CONSUMER_GROUP', default_group)
