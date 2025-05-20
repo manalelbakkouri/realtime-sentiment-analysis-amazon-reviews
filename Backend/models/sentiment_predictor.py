@@ -5,7 +5,7 @@ import os
 import json
 
 class SentimentPredictor:
-    def __init__(self, model_path="models/sentiment_model"):
+    def __init__(self, model_path="../models/sentiment_model"):
         """Initialize the sentiment predictor with a pre-trained model.
         
         Args:
@@ -21,16 +21,35 @@ class SentimentPredictor:
         """Initialize a Spark session."""
         self.spark = SparkSession.builder \
             .appName("SentimentPredictionService") \
+            .config("spark.sql.warehouse.dir", "C:/temp/") \
+            .config("spark.jars.packages", "") \
+            .config("spark.hadoop.fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem") \
+            .config("spark.python.worker.reuse", "false") \
+            .config("spark.driver.memory", "2g") \
+            .config("spark.executor.memory", "2g") \
+            .config("spark.local.dir", "C:/temp") \
+            .config("spark.python.use.daemon", "false") \
+            .config("spark.driver.extraJavaOptions", "-Dlog4j.logger.org.apache.spark=WARN") \
             .getOrCreate()
         
     def load_model(self):
         """Load the pre-trained sentiment analysis model."""
-        if os.path.exists(self.model_path):
-            self.model = PipelineModel.load(self.model_path)
-            print(f"Model loaded from {self.model_path}")
-        else:
-            print(f"Model not found at {self.model_path}. You need to train it first.")
-            
+        try:
+            if os.path.exists(self.model_path):
+                try:
+                    self.model = PipelineModel.load(self.model_path)
+                    print(f"✅ Model loaded from {self.model_path}")
+                except Exception as e:
+                    print(f"🔥 Error loading Spark model: {str(e)}")
+                    # Mode de repli sans Spark - implémentez une alternative simple ici
+                    self.fallback_mode = True
+                    print("⚠️ Switching to fallback mode without Spark")
+            else:
+                raise FileNotFoundError(f"❌ Model not found at {os.path.abspath(self.model_path)}")
+        except Exception as e:
+            print(f"🔥 Error loading model: {str(e)}")
+        self.fallback_mode = True
+        
     def preprocess_text(self, df):
         """Preprocess the input text similar to how the training data was processed.
         
@@ -110,3 +129,5 @@ class SentimentPredictor:
         """Stop the Spark session."""
         if self.spark:
             self.spark.stop()
+    
+    

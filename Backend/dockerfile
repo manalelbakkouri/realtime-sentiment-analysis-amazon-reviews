@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 # Configuration Java pour PySpark
 RUN apt-get update && \
@@ -12,18 +12,22 @@ RUN apt-get update && \
 
 ENV JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64
 WORKDIR /app
+#ajoute recemment
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY requirements.txt .
+# Ajoute tout le contenu du backend dans /app
+#COPY . /app
 
-COPY scripts/ scripts/
-COPY models/ models/ 
+#COPY scripts/ scripts/
+#COPY models/ models/ 
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copie de toute l'arborescence Backend
 COPY . .
 
 # Configuration Python
-ENV PYTHONPATH="/app:$PYTHONPATH"
+ENV PYTHONPATH=/app
 ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 ENV PYSPARK_PYTHON=python3
 

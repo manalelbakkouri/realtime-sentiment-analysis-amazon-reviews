@@ -1,10 +1,10 @@
 import json
 import uuid
 from kafka import KafkaProducer
-from kafka_utils import get_bootstrap_servers
+from scripts.kafka_utils import get_bootstrap_servers
 import logging
 import argparse
-
+import time
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -99,26 +99,36 @@ def parse_review_from_args():
     parser.add_argument("--file", type=str, help="JSON file containing reviews to send")
     return parser.parse_args()
 
+
 if __name__ == "__main__":
     args = parse_review_from_args()
     producer = ReviewProducer()
+
     
-    try:
-        # Send from file if specified
-        if args.file:
-            with open(args.file, 'r') as file:
-                reviews = json.load(file)
-                if isinstance(reviews, list):
-                    for review in reviews:
-                        producer.send_review(review)
-                else:
-                    producer.send_review(reviews)
-            logger.info(f"Sent reviews from file: {args.file}")
-        # Otherwise send from args
-        else:
-            producer.send_sample_review(args.text, args.summary)
-            logger.info("Sent sample review")
-    except Exception as e:
-        logger.error(f"Error: {str(e)}")
-    finally:
-        producer.shutdown()
+        # Si fichier passé via --file
+    if args.file:
+            try:
+                with open(args.file, 'r', encoding='utf-8') as f:
+                    first_char = f.read(1)
+                    f.seek(0)  # Retour au début du fichier
+
+                    if first_char == '[':
+                        # Format JSON standard (liste)
+                        data = json.load(f)
+                        for review in data:
+                            producer.send_review(review)
+                            time.sleep(0.5)
+                    else:
+                        # Format NDJSON (une ligne = un objet JSON)
+                        for line in f:
+                            if line.strip():  # Ignore les lignes vides
+                                try:
+                                    review = json.loads(line)
+                                    producer.send_review(review)
+                                    time.sleep(0.5)
+                                except json.JSONDecodeError as je:
+                                    logger.error(f"Erreur de parsing JSON sur une ligne : {je}")
+
+            except Exception as e:
+                logger.error(f"Error loading file: {e}")
+

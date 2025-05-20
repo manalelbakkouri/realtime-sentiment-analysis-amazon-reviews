@@ -8,6 +8,14 @@ services:
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
 
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./data/db:/data/db
+
+
   kafka:
     image: wurstmeister/kafka
     ports:
@@ -40,14 +48,7 @@ services:
       - kafka
     command: python scripts/app.py
 
-  backend:
-    build: 
-      context: .
-      dockerfile: dockerfile
-    environment:
-      PYSPARK_PYTHON: python
-      PYSPARK_DRIVER_PYTHON: python
-      PYTHONPATH: Backend
+  
 
   sentiment-consumer:
     build: 

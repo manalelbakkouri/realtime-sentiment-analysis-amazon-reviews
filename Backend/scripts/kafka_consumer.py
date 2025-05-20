@@ -1,8 +1,17 @@
 import json
 from kafka import KafkaConsumer
-from kafka_utils import get_bootstrap_servers
+from scripts.kafka_utils import get_bootstrap_servers
 from models.sentiment_predictor import SentimentPredictor
 import logging
+from pymongo import MongoClient
+import sys
+import os
+os.environ['PYSPARK_PYTHON'] = 'C:\\Users\\admin\\Documents\\github\\realtime-sentiment-analysis-amazon-reviews\\venv-py310\\Scripts\\python.exe'
+os.environ['PYSPARK_DRIVER_PYTHON'] = 'C:\\Users\\admin\\Documents\\github\\realtime-sentiment-analysis-amazon-reviews\\venv-py310\\Scripts\\python.exe'
+os.environ['SPARK_LOCAL_IP'] = '127.0.0.1'
+os.environ['SPARK_LOCAL_DIRS'] = 'C:/temp'
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Configure logging
 logging.basicConfig(
@@ -14,7 +23,7 @@ logger = logging.getLogger(__name__)
 class SentimentConsumer:
     def __init__(self, topic="reviews", group_id="sentiment-consumer", model_path="models/sentiment_model"):
         """Initialize the sentiment consumer.
-        
+
         Args:
             topic: Kafka topic to consume from
             group_id: Consumer group ID
@@ -25,6 +34,20 @@ class SentimentConsumer:
         self.bootstrap_servers = get_bootstrap_servers()
         self.predictor = SentimentPredictor(model_path=model_path)
         self.consumer = None
+        self.mongo_client = None
+        self.mongo_collection = None
+        self.initialize_mongo()
+
+    def initialize_mongo(self):
+        """Initialize MongoDB connection and collection."""
+        try:
+            self.mongo_client = MongoClient("mongodb://localhost:27017")
+            db = self.mongo_client["sentiment_analysis"]
+            self.mongo_collection = db["predicted_reviews"]
+            logger.info("MongoDB connection initialized.")
+        except Exception as e:
+            logger.error(f"Failed to connect to MongoDB: {str(e)}")
+            raise
 
     def initialize_consumer(self):
         """Initialize Kafka consumer with the appropriate configuration."""
@@ -44,26 +67,26 @@ class SentimentConsumer:
 
     def process_message(self, message):
         """Process a single message from Kafka.
-        
+
         Args:
             message: Kafka message containing review data
-            
+
         Returns:
             Processed message with sentiment prediction
         """
         try:
-            # Get the review data from the message
             review_data = message.value
-            
-            # Add logging for debugging
             logger.debug(f"Processing message: {review_data}")
-            
-            # Predict sentiment
             result = self.predictor.predict_sentiment(review_data)
-            
             logger.info(f"Processed review ID: {review_data.get('reviewId', 'unknown')}, "
-                       f"Sentiment: {result.get('sentiment', 'unknown')}")
-            
+                        f"Sentiment: {result.get('sentiment', 'unknown')}")
+
+            # Save to MongoDB
+            if self.mongo_collection:
+                to_insert = {**review_data, **result}
+                self.mongo_collection.insert_one(to_insert)
+                logger.debug(f"Inserted into MongoDB: {to_insert}")
+
             return result
         except Exception as e:
             logger.error(f"Error processing message: {str(e)}")
@@ -73,18 +96,12 @@ class SentimentConsumer:
         """Start consuming messages from Kafka and processing them."""
         if not self.consumer:
             self.initialize_consumer()
-            
+
         try:
             logger.info("Starting to consume messages...")
             for message in self.consumer:
                 processed_message = self.process_message(message)
-                
-                # Here you could send the processed message to another Kafka topic,
-                # save to a database, or perform any other action with the results
-                
-                # Example: Logging the processed message
                 logger.debug(f"Processed message: {processed_message}")
-                
         except KeyboardInterrupt:
             logger.info("Consumption interrupted by user")
         except Exception as e:
@@ -93,13 +110,17 @@ class SentimentConsumer:
             self.shutdown()
 
     def shutdown(self):
-        """Shutdown the consumer and predictor."""
+        """Shutdown the consumer, predictor, and database connection."""
         logger.info("Shutting down consumer...")
         if self.consumer:
             self.consumer.close()
-        
+
         if self.predictor:
             self.predictor.shutdown()
+
+        if self.mongo_client:
+            self.mongo_client.close()
+            logger.info("MongoDB connection closed.")
 
 if __name__ == "__main__":
     consumer = SentimentConsumer()
