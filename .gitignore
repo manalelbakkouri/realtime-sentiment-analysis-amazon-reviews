@@ -1,2 +1,7 @@
 /venv
 *.pyc
+*.wt
+*.2025-05-19T21-03-47Z-00000
+/Backend/data/db
+/Backend/models/sentiment_model/data
+/Backend/venv-py310

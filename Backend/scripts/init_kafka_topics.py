@@ -11,7 +11,7 @@ def create_topics():
         try:
             print("Tentative de connexion à Kafka...")
             admin_client = KafkaAdminClient(
-                bootstrap_servers=['kafka:9092'],
+                bootstrap_servers=['localhost:9092'],
                 client_id='admin-client'
             )
             
