@@ -1,64 +1,127 @@
-version: '3'
+version: '3.8'
 
 services:
   zookeeper:
-    image: wurstmeister/zookeeper
-    ports:
-      - "2181:2181"
+    image: bitnami/zookeeper:3.8
+    container_name: Backend_zookeeper
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - bigdata-net
 
   kafka:
-    image: wurstmeister/kafka
+    image: bitnami/kafka:3.4
+    container_name: kafka
     ports:
       - "9092:9092"
     environment:
-      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9093,OUTSIDE://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
-      KAFKA_LISTENERS: INSIDE://0.0.0.0:9093,OUTSIDE://0.0.0.0:9092
-      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_CREATE_TOPICS: "reviews:1:1"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - KAFKA_BROKER_ID=1
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 20s
+      retries: 10
     depends_on:
       - zookeeper
+    networks:
+      - bigdata-net
 
-  sentiment-api:
-    build: 
-      context: .
-      dockerfile: dockerfile
+  mongodb:
+    image: mongo:latest
+    container_name: Backend_mongodb
     ports:
-      - "5000:5000"
+      - "27017:27017"
     volumes:
-      - .:/app
+      - ./data/mg_db:/data/db
+    networks:
+      - bigdata-net
+
+  spark-master:
+    image: bitnami/spark:3.5
+    container_name: spark-master
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9093
-      - KAFKA_TOPIC=reviews
-      - KAFKA_CONSUMER_GROUP=sentiment-consumer
+      - SPARK_MODE=master
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - bigdata-net
+
+  spark-worker:
+    image: bitnami/spark:3.5
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    networks:
+      - bigdata-net
+
+  producer:
+    build:
+      context: ./scripts/produce_file
+    container_name: Backend-producer
+    volumes:
+      - ./data:/data
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - TOPIC_NAME=topic_raw
     depends_on:
       - kafka
-    command: python scripts/app.py
+    networks:
+      - bigdata-net
 
-  backend:
-    build: 
-      context: .
-      dockerfile: dockerfile
+  cleaning_stream:
+    build:
+      context: ./scripts/cleaning_stream
+    container_name: cleaning_stream
     environment:
-      PYSPARK_PYTHON: python
-      PYSPARK_DRIVER_PYTHON: python
-      PYTHONPATH: Backend
-
-  sentiment-consumer:
-    build: 
-      context: .
-      dockerfile: dockerfile
-    volumes:
-      - .:/app
-    environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9093
-      - KAFKA_TOPIC=reviews
-      - KAFKA_CONSUMER_GROUP=sentiment-consumer
+      - SPARK_MASTER_URL=spark://spark-master:7077
     depends_on:
       - kafka
-    command: python scripts/kafka_consumer.py
+      - spark-master
+    networks:
+      - bigdata-net
+
+  spark_consumer:
+    build:
+      context: ./scripts/spark_consumer
+    container_name: spark_consumer
+    volumes:
+      - ./scripts/spark_consumer/models/sentiment_model:/app/models/sentiment_model
+    environment:
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    depends_on:
+      - kafka
+      - spark-master
+    networks:
+      - bigdata-net
+
+  store_predictions:
+    build:
+      context: ./scripts/store_predictions
+    container_name: store_predictions
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - MONGO_URI=mongodb://mongodb:27017
+      - DB_NAME=sentiment_analysis
+      - COLLECTION_NAME=predictions
+    depends_on:
+      - mongodb
+      - kafka
+    networks:
+      - bigdata-net
+
+networks:
+  bigdata-net:
+    driver: bridge

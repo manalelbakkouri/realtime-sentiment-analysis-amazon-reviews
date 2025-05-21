@@ -1,2 +1,5 @@
-/venv
+Backend/scripts/spark_consumer/models/
+Backend/data/mg_db/
+env/
 *.pyc
+__pycache__/
