@@ -1,0 +1,201 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  [data-theme="light"] {
+    --background: 225 25% 95%;
+    --foreground: 210 40% 10%;
+
+    --card: 228 21% 95%;
+    --card-foreground: 210 40% 10%;
+
+    --popover: 228 21% 95%;
+    --popover-foreground: 210 40% 10%;
+
+    --primary: 263 80% 54%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217.2 32.6% 90%;
+    --secondary-foreground: 210 40% 10%;
+
+    --muted: 217.2 32.6% 90%;
+    --muted-foreground: 215 20.2% 45.1%;
+
+    --accent: 263 80% 54%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 85%;
+    --input: 217.2 32.6% 85%;
+    --ring: 263 80% 54%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 228 24% 93%;
+    --sidebar-foreground: 210 40% 10%;
+    --sidebar-primary: 263 80% 54%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 228 16% 88%;
+    --sidebar-accent-foreground: 210 40% 10%;
+    --sidebar-border: 228 16% 88%;
+    --sidebar-ring: 263 80% 54%;
+  }
+
+  [data-theme="dark"] {
+    --background: 225 25% 14%;
+    --foreground: 210 40% 98%;
+
+    --card: 228 21% 19%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 228 21% 19%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 263 80% 74%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 263 80% 74%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 263 80% 74%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 228 24% 15%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 263 80% 74%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 228 16% 20%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 228 16% 20%;
+    --sidebar-ring: 263 80% 74%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border transition-colors duration-300;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Professional scrollbars */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted/80;
+  }
+}
+
+@layer components {
+  .sentiment-badge-positive {
+    @apply bg-sentiment-positive text-white px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .sentiment-badge-neutral {
+    @apply bg-sentiment-neutral text-black px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .sentiment-badge-negative {
+    @apply bg-sentiment-negative text-white px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .dashboard-card {
+    @apply bg-card rounded-lg border border-border p-4 shadow-md transition-all duration-300 hover:shadow-lg hover:border-primary/20;
+  }
+  
+  .dashboard-title {
+    @apply text-xl font-bold mb-4 text-primary;
+  }
+  
+  .dashboard-subtitle {
+    @apply text-lg font-medium mb-2 text-foreground;
+  }
+  
+  /* Enhanced glassmorphism effects */
+  .glass-panel {
+    @apply backdrop-blur-lg border border-white/10 rounded-lg;
+    background-color: hsla(var(--card) / 0.7);
+  }
+  
+  /* Modern button styles */
+  .btn-gradient {
+    @apply bg-gradient-to-r from-primary to-accent text-white font-medium py-2 px-4 rounded-md transition-all duration-300 hover:shadow-lg;
+  }
+  
+  /* Card hover effects */
+  .hover-card {
+    @apply transition-all duration-300 hover:-translate-y-1;
+  }
+  
+  /* Text gradients */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-in-out;
+  }
+  
+  .animate-pulse-subtle {
+    animation: pulseSlight 2s infinite;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes slideUp {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  
+  @keyframes pulseSlight {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+  }
+}
+
+/* Theme transition */
+* {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: 0.3s;
+  transition-timing-function: ease-in-out;
+}
