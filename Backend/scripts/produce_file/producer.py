@@ -4,9 +4,9 @@ import time
 import os
 
 # Get config from environment
-KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'kafka:9092')
+KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'localhost:29092')
 TOPIC_NAME = os.getenv('TOPIC_NAME', 'topic_raw')
-DATA_PATH = '/data/DATA.json'
+DATA_PATH = 'DATA.json'
 
 producer = KafkaProducer(
     bootstrap_servers=KAFKA_BROKER,

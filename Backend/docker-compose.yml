@@ -14,12 +14,15 @@ services:
     container_name: kafka
     ports:
       - "9092:9092"
+      - "29092:29092"
     environment:
       - KAFKA_BROKER_ID=1
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_LISTENERS=PLAINTEXT_INTERNAL://:9092,PLAINTEXT_EXTERNAL://:29092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT_INTERNAL://kafka:9092,PLAINTEXT_EXTERNAL://localhost:29092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT_INTERNAL
     healthcheck:
       test: ["CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "localhost:9092"]
       interval: 10s
@@ -122,6 +125,38 @@ services:
     networks:
       - bigdata-net
 
+  flask-backend:
+    build:
+      context: .
+    container_name: flask-backend
+    command: python -m flask run --host=0.0.0.0 --port=5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    environment:
+      - FLASK_APP=scripts/app.py
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://mongodb:27017
+      - DB_NAME=sentiment_analysis
+      - COLLECTION_NAME=predictions
+    depends_on:
+      - mongodb
+    networks:
+      - bigdata-net
+
+  frontend:
+    build:
+      context: ../Frontend/frontend
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - bigdata-net
+
 networks:
   bigdata-net:
     driver: bridge
+environment:
+  - DOCKERIZED=true
+

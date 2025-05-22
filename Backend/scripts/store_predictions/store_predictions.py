@@ -6,9 +6,9 @@ from datetime import datetime
 import time
 time.sleep(25)  # Attendre que Kafka soit prêt
 # Configuration
-KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'kafka:9092')
+KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'localhost:29092')
 TOPIC_NAME = 'topic_results_training'
-MONGO_URI = os.getenv('MONGO_URI', 'mongodb://mongodb:27017')
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017')
 DB_NAME = os.getenv('DB_NAME', 'sentiment_analysis')
 COLLECTION_NAME = os.getenv('COLLECTION_NAME', 'predictions')
 

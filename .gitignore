@@ -3,3 +3,6 @@ Backend/data/mg_db/
 env/
 *.pyc
 __pycache__/
+/env310
+/Frontend/src/hooks
+/Frontend/src/hooks
