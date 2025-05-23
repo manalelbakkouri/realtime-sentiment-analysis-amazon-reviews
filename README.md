@@ -1,4 +1,4 @@
-# Amazon Reviews Real-Time Sentiment Analysis
+#                                              Amazon Reviews Real-Time Sentiment Analysis
 
 <div align="center">
   <h3>Analyse des avis clients en temps réel sur des produits Amazon</h3>
