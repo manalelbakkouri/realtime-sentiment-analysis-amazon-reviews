@@ -230,6 +230,4 @@ Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de
 - MongoDB pour la solution de base de données
 - La communauté open-source pour les outils et bibliothèques
 
----
 
-**Présenté le vendredi 23/05/2025**
