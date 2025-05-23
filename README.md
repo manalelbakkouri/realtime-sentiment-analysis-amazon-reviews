@@ -219,15 +219,7 @@ Les contributions sont les bienvenues ! Pour contribuer :
 4. Push vers la branche (`git push origin feature/amazing-feature`)
 5. Ouvrez une Pull Request
 
-## 📄 License
 
-Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
-## 🙏 Acknowledgments
-
-- Kaggle pour le dataset Amazon Reviews
-- Apache Foundation pour Kafka et Spark
-- MongoDB pour la solution de base de données
-- La communauté open-source pour les outils et bibliothèques
 
 
