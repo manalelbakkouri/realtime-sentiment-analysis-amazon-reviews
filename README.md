@@ -1,7 +1,7 @@
 # Amazon Reviews Real-Time Sentiment Analysis
 
 <div align="center">
-  <h3>🚀 Analyse des avis clients en temps réel sur des produits Amazon</h3>
+  <h3>Analyse des avis clients en temps réel sur des produits Amazon</h3>
   <p>Système de traitement en temps réel pour l'analyse de sentiment des commentaires clients avec Kafka, Spark et Machine Learning</p>
 </div>
 
@@ -19,13 +19,13 @@ L'architecture permet de traiter les commentaires en continu et de fournir des r
 
 ## ✨ Features
 
-- **🔄 Traitement en temps réel** : Analyse continue des avis clients avec Kafka Streaming
-- **🤖 Machine Learning** : Classification automatique des sentiments avec Spark MLlib
-- **📊 Tableau de bord analytique** : Visualisation des résultats et métriques de performance
-- **🗄️ Stockage distribué** : Archivage des prédictions dans MongoDB
-- **🐳 Containerisation** : Déploiement simplifié avec Docker
-- **📈 Monitoring** : Suivi des performances et métriques en temps réel
-- **🎯 Classification tri-classe** : Sentiment positif, négatif et neutre
+- **Traitement en temps réel** : Analyse continue des avis clients avec Kafka Streaming
+- **Machine Learning** : Classification automatique des sentiments avec Spark MLlib
+- **Tableau de bord analytique** : Visualisation des résultats et métriques de performance
+- **Stockage distribué** : Archivage des prédictions dans MongoDB
+- **Containerisation** : Déploiement simplifié avec Docker
+- **Monitoring** : Suivi des performances et métriques en temps réel
+- **Classification tri-classe** : Sentiment positif, négatif et neutre
 
 ## 🏗️ Architecture
 
@@ -188,7 +188,7 @@ npm start
    - Partitionnement des données (80% train, 10% validation, 10% test)
 
 2. **Entraînement des modèles**
-   - Multiple algorithmes testés avec Spark MLlib
+   - Multiple algorithmes testés avec Spark MLlib (Random Forest , Naive Bayes , Decision Tree)
    - Validation croisée et optimisation d'hyperparamètres
    - Sélection du meilleur modèle basé sur les métriques de performance
 
@@ -207,7 +207,6 @@ npm start
 ### Mode Offline (Analytique)
 - Analyse des tendances par période
 - Graphiques de performance par produit
-- Métriques agrégées et KPIs
 
 ## 🤝 Contributing
 
