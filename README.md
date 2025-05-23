@@ -1,6 +1,6 @@
 #                                              Amazon Reviews Real-Time Sentiment Analysis
 
-<div align="center">
+<div >
   <h3>Analyse des avis clients en temps réel sur des produits Amazon</h3>
   <p>Système de traitement en temps réel pour l'analyse de sentiment des commentaires clients avec Kafka, Spark et Machine Learning</p>
 </div>
