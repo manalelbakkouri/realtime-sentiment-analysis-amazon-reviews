@@ -153,11 +153,11 @@ npm start
 ## 📊 Interface Screenshots
 
 ### Real-Time Streaming Dashboard
-![Real-time Interface](path/to/realtime-interface.png)
+![Real-time Interface](Frontend/frontend/src/assets/dashboard.png)
 *Interface de streaming en temps réel montrant les prédictions de sentiment au fur et à mesure*
 
 ### Analytics Dashboard
-![Analytics Dashboard](path/to/analytics-dashboard.png)
+![Analytics Dashboard](Frontend/frontend/src/assets/realtimestreaming.png)
 *Tableau de bord analytique avec visualisations des résultats par date/heure et scoring par produit*
 
 ## 💾 Dataset
